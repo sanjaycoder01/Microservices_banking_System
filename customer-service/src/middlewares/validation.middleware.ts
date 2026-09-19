@@ -13,9 +13,16 @@ export const validateBody = <T extends object>(DtoClass: Constructor<T>) => {
     });
 
     if (errors.length > 0) {
-      const messages = errors.flatMap((error) =>
-        Object.values(error.constraints ?? {})
-      );
+      const messages = errors.flatMap((error) => {
+        if (error.constraints) {
+          return Object.values(error.constraints);
+        }
+
+        return (error.children ?? []).flatMap((child) =>
+          Object.values(child.constraints ?? {})
+        );
+      });
+
       return res.status(400).json({
         message: "Validation failed",
         errors: messages,

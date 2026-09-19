@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { customerService } from "../services/customer.service";
 import { RegisterCustomerDTO } from "../dtos/register.dto";
 import { LoginCustomerDTO } from "../dtos/login.dto";
+import { UpdateCustomerDTO } from "../dtos/update-customer.dto";
 import { env } from "../config/env";
 import { AppError } from "../types";
 
@@ -54,6 +55,24 @@ export class CustomerController {
       const customer = await customerService.getMe(req.user.sub);
       res.status(200).json({
         message: "Customer profile retrieved successfully",
+        data: customer,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async updateMe(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.user) {
+        throw new AppError(401, "Authentication required");
+      }
+
+      const dto = req.body as UpdateCustomerDTO;
+      const customer = await customerService.updateMe(req.user.sub, dto);
+
+      res.status(200).json({
+        message: "Customer profile updated successfully",
         data: customer,
       });
     } catch (error) {

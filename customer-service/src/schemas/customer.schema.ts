@@ -1,4 +1,3 @@
-// schemas/customer.schema.ts
 import { Schema } from "mongoose";
 
 export const customerSchema = new Schema(
@@ -27,6 +26,13 @@ export const customerSchema = new Schema(
 
     phone: {
       type: String,
+    },
+
+    address: {
+      line1: { type: String },
+      city: { type: String },
+      state: { type: String },
+      postalCode: { type: String },
     },
 
     role: {

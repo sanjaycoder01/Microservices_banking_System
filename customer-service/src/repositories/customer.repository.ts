@@ -1,5 +1,7 @@
 import { CustomerModel } from "../models/customer.model";
 import { RegisterCustomerDTO } from "../dtos/register.dto";
+import { UpdateCustomerDTO } from "../dtos/update-customer.dto";
+import { KycStatus } from "../types";
 
 export class CustomerRepository {
   async findByEmail(email: string) {
@@ -19,6 +21,26 @@ export class CustomerRepository {
       lastName: rest.lastName,
       phone: rest.phone,
     });
+  }
+
+  async updateById(id: string, data: UpdateCustomerDTO) {
+    const updateData = Object.fromEntries(
+      Object.entries(data).filter(([, value]) => value !== undefined)
+    );
+
+    return CustomerModel.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+  }
+
+  async updateKycStatus(id: string, kycStatus: KycStatus) {
+    return CustomerModel.findByIdAndUpdate(
+      id,
+      { $set: { kycStatus } },
+      { new: true, runValidators: true }
+    );
   }
 }
 

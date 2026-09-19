@@ -1,5 +1,6 @@
 import { RegisterCustomerDTO } from "../dtos/register.dto";
 import { LoginCustomerDTO } from "../dtos/login.dto";
+import { UpdateCustomerDTO } from "../dtos/update-customer.dto";
 import { customerRepository } from "../repositories/customer.repository";
 import { hashPassword, comparePassword } from "../utils/password";
 import { signToken } from "../utils/jwt";
@@ -11,6 +12,12 @@ const toCustomerResponse = (customer: {
   firstName: string;
   lastName: string;
   phone?: string | null;
+  address?: {
+    line1?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+  } | null;
   role: string;
   status: string;
   kycStatus: string;
@@ -22,6 +29,14 @@ const toCustomerResponse = (customer: {
   firstName: customer.firstName,
   lastName: customer.lastName,
   phone: customer.phone ?? undefined,
+  address: customer.address
+    ? {
+        line1: customer.address.line1 ?? undefined,
+        city: customer.address.city ?? undefined,
+        state: customer.address.state ?? undefined,
+        postalCode: customer.address.postalCode ?? undefined,
+      }
+    : undefined,
   role: customer.role as CustomerResponse["role"],
   status: customer.status as CustomerResponse["status"],
   kycStatus: customer.kycStatus as CustomerResponse["kycStatus"],
@@ -76,6 +91,18 @@ export class CustomerService {
 
   async getMe(customerId: string): Promise<CustomerResponse> {
     const customer = await customerRepository.findById(customerId);
+    if (!customer) {
+      throw new AppError(404, "Customer not found");
+    }
+
+    return toCustomerResponse(customer);
+  }
+
+  async updateMe(
+    customerId: string,
+    dto: UpdateCustomerDTO
+  ): Promise<CustomerResponse> {
+    const customer = await customerRepository.updateById(customerId, dto);
     if (!customer) {
       throw new AppError(404, "Customer not found");
     }
