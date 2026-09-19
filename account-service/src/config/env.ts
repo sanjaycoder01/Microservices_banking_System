@@ -10,9 +10,8 @@ function required(name: string): string {
 
 export const env = {
   NODE_ENV: process.env.NODE_ENV || "development",
-  PORT: Number(process.env.PORT) || 3001,
+  PORT: Number(process.env.PORT) || 3002,
   MONGODB_URI: required("MONGODB_URI"),
-  JWT_SECRET: required("JWT_SECRET"),
-  JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "1d",
+  CUSTOMER_SERVICE_URL: required("CUSTOMER_SERVICE_URL"),
   LOG_LEVEL: process.env.LOG_LEVEL || "info",
 };

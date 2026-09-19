@@ -62,6 +62,23 @@ export class CustomerController {
     }
   }
 
+  async getById(req: Request, res: Response, next: NextFunction) {
+    try {
+      const id = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+      if (!id) {
+        throw new AppError(400, "Customer id is required");
+      }
+
+      const customer = await customerService.getMe(id);
+      res.status(200).json({
+        message: "Customer retrieved successfully",
+        data: customer,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
   async updateMe(req: Request, res: Response, next: NextFunction) {
     try {
       if (!req.user) {

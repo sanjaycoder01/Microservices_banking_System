@@ -1,23 +1,17 @@
 {
-  "name": "customer-service",
+  "name": "account-service",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "directories": {
-    "test": "tests"
-  },
+  "description": "Account microservice for banking system",
+  "main": "dist/server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "tsx src/server.ts",
     "start": "tsx src/server.ts",
-    "build": "tsc"
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
-    "bcryptjs": "^3.0.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cookie-parser": "^1.4.7",
@@ -29,11 +23,9 @@
     "mongoose": "^9.10.1",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",
-    "reflect-metadata": "^0.2.2",
-    "zod": "^4.6.5"
+    "reflect-metadata": "^0.2.2"
   },
   "devDependencies": {
-    "@types/bcryptjs": "^2.4.6",
     "@types/cookie-parser": "^1.4.10",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",

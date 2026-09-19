@@ -5,6 +5,7 @@ import { customerRepository } from "../repositories/customer.repository";
 import { hashPassword, comparePassword } from "../utils/password";
 import { signToken } from "../utils/jwt";
 import { AppError, CustomerResponse } from "../types";
+import { logger } from "../config/logger";
 
 const toCustomerResponse = (customer: {
   _id: { toString(): string };
@@ -46,47 +47,71 @@ const toCustomerResponse = (customer: {
 
 export class CustomerService {
   async register(dto: RegisterCustomerDTO): Promise<CustomerResponse> {
-    const existing = await customerRepository.findByEmail(dto.email);
-    if (existing) {
-      throw new AppError(409, "Email already registered");
+    try {
+      const existing = await customerRepository.findByEmail(dto.email);
+      if (existing) {
+        throw new AppError(409, "Email already registered");
+      }
+
+      const passwordHash = await hashPassword(dto.password);
+      const customer = await customerRepository.create({
+        ...dto,
+        passwordHash,
+      });
+
+      logger.info(
+        { customerId: customer._id.toString(), email: customer.email },
+        "Customer registered"
+      );
+
+      return toCustomerResponse(customer);
+    } catch (error) {
+      if (!(error instanceof AppError)) {
+        logger.error({ err: error, email: dto.email }, "Customer registration failed");
+      }
+      throw error;
     }
-
-    const passwordHash = await hashPassword(dto.password);
-    const customer = await customerRepository.create({
-      ...dto,
-      passwordHash,
-    });
-
-    return toCustomerResponse(customer);
   }
 
   async login(
     dto: LoginCustomerDTO
   ): Promise<{ customer: CustomerResponse; token: string }> {
-    const customer = await customerRepository.findByEmail(dto.email);
-    if (!customer) {
-      throw new AppError(401, "Invalid email or password");
+    try {
+      const customer = await customerRepository.findByEmail(dto.email);
+      if (!customer) {
+        throw new AppError(401, "Invalid email or password");
+      }
+
+      if (customer.status === "BLOCKED") {
+        throw new AppError(403, "Account is blocked");
+      }
+
+      const isValid = await comparePassword(dto.password, customer.passwordHash);
+      if (!isValid) {
+        throw new AppError(401, "Invalid email or password");
+      }
+
+      const token = signToken({
+        sub: customer._id.toString(),
+        email: customer.email,
+        role: customer.role as CustomerResponse["role"],
+      });
+
+      logger.info(
+        { customerId: customer._id.toString() },
+        "Customer logged in"
+      );
+
+      return {
+        customer: toCustomerResponse(customer),
+        token,
+      };
+    } catch (error) {
+      if (!(error instanceof AppError)) {
+        logger.error({ err: error }, "Customer login failed");
+      }
+      throw error;
     }
-
-    if (customer.status === "BLOCKED") {
-      throw new AppError(403, "Account is blocked");
-    }
-
-    const isValid = await comparePassword(dto.password, customer.passwordHash);
-    if (!isValid) {
-      throw new AppError(401, "Invalid email or password");
-    }
-
-    const token = signToken({
-      sub: customer._id.toString(),
-      email: customer.email,
-      role: customer.role as CustomerResponse["role"],
-    });
-
-    return {
-      customer: toCustomerResponse(customer),
-      token,
-    };
   }
 
   async getMe(customerId: string): Promise<CustomerResponse> {
@@ -102,12 +127,21 @@ export class CustomerService {
     customerId: string,
     dto: UpdateCustomerDTO
   ): Promise<CustomerResponse> {
-    const customer = await customerRepository.updateById(customerId, dto);
-    if (!customer) {
-      throw new AppError(404, "Customer not found");
-    }
+    try {
+      const customer = await customerRepository.updateById(customerId, dto);
+      if (!customer) {
+        throw new AppError(404, "Customer not found");
+      }
 
-    return toCustomerResponse(customer);
+      logger.info({ customerId }, "Customer profile updated");
+
+      return toCustomerResponse(customer);
+    } catch (error) {
+      if (!(error instanceof AppError)) {
+        logger.error({ err: error, customerId }, "Customer profile update failed");
+      }
+      throw error;
+    }
   }
 }
 

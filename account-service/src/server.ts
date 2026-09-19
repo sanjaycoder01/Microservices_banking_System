@@ -8,7 +8,7 @@ const startServer = async (): Promise<void> => {
     await connectDatabase();
 
     const server = app.listen(env.PORT, () => {
-      logger.info({ port: env.PORT }, "Customer service started");
+      logger.info({ port: env.PORT }, "Account service started");
     });
 
     const shutdown = (signal: string) => {
@@ -21,7 +21,7 @@ const startServer = async (): Promise<void> => {
     process.on("SIGTERM", () => shutdown("SIGTERM"));
     process.on("SIGINT", () => shutdown("SIGINT"));
   } catch (error) {
-    logger.error({ err: error }, "Failed to start customer service");
+    logger.error({ err: error }, "Failed to start account service");
     process.exit(1);
   }
 };
