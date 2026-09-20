@@ -2,7 +2,12 @@ import { CreateAccountDTO } from "../dtos/create-account.dto";
 import { accountRepository } from "../repositories/account.repository";
 import { customerClient } from "../clients/customer.client";
 import { generateAccountNumber } from "../utils/account-number";
-import { AppError, AccountResponse } from "../types";
+import {
+  AppError,
+  AccountBalanceResponse,
+  AccountResponse,
+  CustomerSummary,
+} from "../types";
 import { logger } from "../config/logger";
 
 const toAccountResponse = (account: {
@@ -91,6 +96,66 @@ export class AccountService {
         logger.error({ err: error }, "Failed to list customer accounts");
       }
       throw error;
+    }
+  }
+
+  async getAccountById(
+    accessToken: string,
+    accountId: string
+  ): Promise<AccountResponse> {
+    try {
+      const account = await this.getOwnedAccount(accessToken, accountId);
+      return toAccountResponse(account);
+    } catch (error) {
+      if (!(error instanceof AppError)) {
+        logger.error({ err: error, accountId }, "Failed to get account");
+      }
+      throw error;
+    }
+  }
+
+  async getAccountBalance(
+    accessToken: string,
+    accountId: string
+  ): Promise<AccountBalanceResponse> {
+    try {
+      const account = await this.getOwnedAccount(accessToken, accountId);
+
+      return {
+        accountId: account._id.toString(),
+        accountNumber: account.accountNumber,
+        balance: account.balance,
+        currency: account.currency,
+        status: account.status as AccountBalanceResponse["status"],
+      };
+    } catch (error) {
+      if (!(error instanceof AppError)) {
+        logger.error({ err: error, accountId }, "Failed to get account balance");
+      }
+      throw error;
+    }
+  }
+
+  private async getOwnedAccount(accessToken: string, accountId: string) {
+    const customer = await customerClient.getAuthenticatedCustomer(accessToken);
+    const account = await accountRepository.findById(accountId);
+
+    if (!account) {
+      throw new AppError(404, "Account not found");
+    }
+
+    this.assertAccountAccess(customer, account.customerId.toString());
+
+    return account;
+  }
+
+  private assertAccountAccess(customer: CustomerSummary, accountCustomerId: string) {
+    if (customer.role === "ADMIN") {
+      return;
+    }
+
+    if (accountCustomerId !== customer.id) {
+      throw new AppError(403, "You do not have access to this account");
     }
   }
 

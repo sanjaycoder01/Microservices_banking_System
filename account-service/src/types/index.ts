@@ -23,11 +23,20 @@ export interface AccountResponse {
   updatedAt: Date;
 }
 
+export interface AccountBalanceResponse {
+  accountId: string;
+  accountNumber: string;
+  balance: number;
+  currency: string;
+  status: AccountStatus;
+}
+
 export interface CustomerSummary {
   id: string;
   email: string;
   status: "ACTIVE" | "BLOCKED";
   kycStatus: "PENDING" | "VERIFIED" | "REJECTED";
+  role?: "CUSTOMER" | "ADMIN";
 }
 
 declare global {

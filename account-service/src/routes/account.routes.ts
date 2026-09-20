@@ -19,4 +19,16 @@ router.get(
   (req, res, next) => accountController.getMine(req, res, next)
 );
 
+router.get(
+  "/:id/balance",
+  requireAccessToken,
+  (req, res, next) => accountController.getBalance(req, res, next)
+);
+
+router.get(
+  "/:id",
+  requireAccessToken,
+  (req, res, next) => accountController.getById(req, res, next)
+);
+
 export const accountRoutes = router;

@@ -38,6 +38,62 @@ export class AccountController {
       next(error);
     }
   }
+
+  async getById(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.accessToken) {
+        throw new AppError(401, "Authentication required");
+      }
+
+      const accountId = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
+
+      if (!accountId) {
+        throw new AppError(400, "Account id is required");
+      }
+
+      const account = await accountService.getAccountById(
+        req.accessToken,
+        accountId
+      );
+
+      res.status(200).json({
+        message: "Account retrieved successfully",
+        data: account,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getBalance(req: Request, res: Response, next: NextFunction) {
+    try {
+      if (!req.accessToken) {
+        throw new AppError(401, "Authentication required");
+      }
+
+      const accountId = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
+
+      if (!accountId) {
+        throw new AppError(400, "Account id is required");
+      }
+
+      const balance = await accountService.getAccountBalance(
+        req.accessToken,
+        accountId
+      );
+
+      res.status(200).json({
+        message: "Account balance retrieved successfully",
+        data: balance,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
 
 export const accountController = new AccountController();
