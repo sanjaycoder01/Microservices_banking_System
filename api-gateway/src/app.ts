@@ -1,14 +1,20 @@
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
-import pinoHttp from "pino-http";
-import { logger } from "./config/logger";
 import { requestIdMiddleware } from "./middlewares/request-id.middleware";
+import { httpLoggerMiddleware } from "./middlewares/http-logger.middleware";
+import {
+  authRateLimitMiddleware,
+  rateLimitMiddleware,
+} from "./middlewares/rate-limit.middleware";
 import { errorMiddleware } from "./middlewares/error.middleware";
 import { customerProxy } from "./routes/customer.proxy";
 import { accountProxy } from "./routes/account.proxy";
 
 const app = express();
+
+// Needed so rate limiting uses the real client IP behind proxies/load balancers.
+app.set("trust proxy", 1);
 
 app.use(
   cors({
@@ -17,29 +23,16 @@ app.use(
   })
 );
 app.use(cookieParser());
+
+// 1) Correlation / request id
 app.use(requestIdMiddleware);
-app.use(
-  pinoHttp({
-    logger,
-    autoLogging: {
-      ignore: (req) => req.url === "/health",
-    },
-    serializers: {
-      req(req) {
-        return {
-          id: req.id,
-          method: req.method,
-          url: req.url,
-        };
-      },
-      res(res) {
-        return {
-          statusCode: res.statusCode,
-        };
-      },
-    },
-  })
-);
+
+// 2) Centralized HTTP access logs
+app.use(httpLoggerMiddleware);
+
+// 3) Rate limiting
+app.use(rateLimitMiddleware);
+app.use(authRateLimitMiddleware);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({
