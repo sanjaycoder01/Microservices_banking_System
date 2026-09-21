@@ -1,4 +1,5 @@
 import { CreateAccountDTO } from "../dtos/create-account.dto";
+import { InternalTransferDTO } from "../dtos/internal-transfer.dto";
 import { accountRepository } from "../repositories/account.repository";
 import { customerClient } from "../clients/customer.client";
 import { generateAccountNumber } from "../utils/account-number";
@@ -7,6 +8,7 @@ import {
   AccountBalanceResponse,
   AccountResponse,
   CustomerSummary,
+  InternalTransferResult,
 } from "../types";
 import { logger } from "../config/logger";
 
@@ -131,6 +133,107 @@ export class AccountService {
     } catch (error) {
       if (!(error instanceof AppError)) {
         logger.error({ err: error, accountId }, "Failed to get account balance");
+      }
+      throw error;
+    }
+  }
+
+  /** Service-to-service: load any account without ownership check. */
+  async getAccountInternal(accountId: string): Promise<AccountResponse> {
+    const account = await accountRepository.findById(accountId);
+
+    if (!account) {
+      throw new AppError(404, "Account not found");
+    }
+
+    return toAccountResponse(account);
+  }
+
+  /**
+   * Service-to-service: debit source and credit destination.
+   * Does not use multi-doc transactions (works on standalone MongoDB).
+   * If credit fails after debit, the debit is reversed.
+   */
+  async transferInternal(dto: InternalTransferDTO): Promise<InternalTransferResult> {
+    try {
+      if (dto.sourceAccountId === dto.destinationAccountId) {
+        throw new AppError(
+          400,
+          "Source and destination accounts must be different"
+        );
+      }
+
+      const currency = dto.currency.toUpperCase();
+      const source = await accountRepository.findById(dto.sourceAccountId);
+      const destination = await accountRepository.findById(
+        dto.destinationAccountId
+      );
+
+      if (!source) {
+        throw new AppError(404, "Source account not found");
+      }
+
+      if (!destination) {
+        throw new AppError(404, "Destination account not found");
+      }
+
+      if (source.status !== "ACTIVE") {
+        throw new AppError(400, "Source account is not active");
+      }
+
+      if (destination.status !== "ACTIVE") {
+        throw new AppError(400, "Destination account is not active");
+      }
+
+      if (source.currency !== currency || destination.currency !== currency) {
+        throw new AppError(400, "Currency mismatch between accounts and transfer");
+      }
+
+      const debited = await accountRepository.debitIfSufficient(
+        dto.sourceAccountId,
+        dto.amount
+      );
+
+      if (!debited) {
+        throw new AppError(400, "Insufficient balance in source account");
+      }
+
+      const credited = await accountRepository.creditIfActive(
+        dto.destinationAccountId,
+        dto.amount
+      );
+
+      if (!credited) {
+        await accountRepository.creditUnconditionally(
+          dto.sourceAccountId,
+          dto.amount
+        );
+        throw new AppError(400, "Failed to credit destination account");
+      }
+
+      logger.info(
+        {
+          transactionId: dto.transactionId,
+          sourceAccountId: dto.sourceAccountId,
+          destinationAccountId: dto.destinationAccountId,
+          amount: dto.amount,
+          currency,
+        },
+        "Internal transfer completed"
+      );
+
+      return {
+        transactionId: dto.transactionId,
+        sourceAccountId: dto.sourceAccountId,
+        destinationAccountId: dto.destinationAccountId,
+        amount: dto.amount,
+        currency,
+        sourceBalance: debited.balance,
+        destinationBalance: credited.balance,
+      };
+    } catch (error) {
+      if (!(error instanceof AppError)) {
+        logger.error({ err: error }, "Internal transfer failed");
       }
       throw error;
     }

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { accountService } from "../services/account.service";
 import { CreateAccountDTO } from "../dtos/create-account.dto";
+import { InternalTransferDTO } from "../dtos/internal-transfer.dto";
 import { AppError } from "../types";
 
 export class AccountController {
@@ -89,6 +90,41 @@ export class AccountController {
       res.status(200).json({
         message: "Account balance retrieved successfully",
         data: balance,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async getByIdInternal(req: Request, res: Response, next: NextFunction) {
+    try {
+      const accountId = Array.isArray(req.params.id)
+        ? req.params.id[0]
+        : req.params.id;
+
+      if (!accountId) {
+        throw new AppError(400, "Account id is required");
+      }
+
+      const account = await accountService.getAccountInternal(accountId);
+
+      res.status(200).json({
+        message: "Account retrieved successfully",
+        data: account,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  async transferInternal(req: Request, res: Response, next: NextFunction) {
+    try {
+      const dto = req.body as InternalTransferDTO;
+      const result = await accountService.transferInternal(dto);
+
+      res.status(200).json({
+        message: "Transfer completed successfully",
+        data: result,
       });
     } catch (error) {
       next(error);

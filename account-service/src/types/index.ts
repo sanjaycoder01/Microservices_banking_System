@@ -31,6 +31,16 @@ export interface AccountBalanceResponse {
   status: AccountStatus;
 }
 
+export interface InternalTransferResult {
+  transactionId: string;
+  sourceAccountId: string;
+  destinationAccountId: string;
+  amount: number;
+  currency: string;
+  sourceBalance: number;
+  destinationBalance: number;
+}
+
 export interface CustomerSummary {
   id: string;
   email: string;

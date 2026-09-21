@@ -5,8 +5,7 @@ import helmet from "helmet";
 import cookieParser from "cookie-parser";
 import pinoHttp from "pino-http";
 import { logger } from "./config/logger";
-import { accountRoutes } from "./routes/account.routes";
-import { internalAccountRoutes } from "./routes/internal-account.routes";
+import { transactionRoutes } from "./routes/transaction.routes";
 import { errorMiddleware } from "./middlewares/error.middleware";
 
 const app = express();
@@ -47,12 +46,11 @@ app.use(
 app.get("/health", (_req, res) => {
   res.status(200).json({
     status: "ok",
-    service: "account-service",
+    service: "transaction-service",
   });
 });
 
-app.use("/api/v1/accounts", accountRoutes);
-app.use("/internal/accounts", internalAccountRoutes);
+app.use("/api/v1/transactions", transactionRoutes);
 
 app.use(errorMiddleware);
 
