@@ -3,17 +3,13 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { requestIdMiddleware } from "./middlewares/request-id.middleware";
 import { httpLoggerMiddleware } from "./middlewares/http-logger.middleware";
-import {
-  authRateLimitMiddleware,
-  rateLimitMiddleware,
-} from "./middlewares/rate-limit.middleware";
 import { errorMiddleware } from "./middlewares/error.middleware";
 import { customerProxy } from "./routes/customer.proxy";
 import { accountProxy } from "./routes/account.proxy";
 
 const app = express();
 
-// Needed so rate limiting uses the real client IP behind proxies/load balancers.
+// Needed so client IP is correct behind proxies/load balancers.
 app.set("trust proxy", 1);
 
 app.use(
@@ -29,10 +25,6 @@ app.use(requestIdMiddleware);
 
 // 2) Centralized HTTP access logs
 app.use(httpLoggerMiddleware);
-
-// 3) Rate limiting
-app.use(rateLimitMiddleware);
-app.use(authRateLimitMiddleware);
 
 app.get("/health", (_req, res) => {
   res.status(200).json({

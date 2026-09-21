@@ -7,9 +7,13 @@ import pinoHttp from "pino-http";
 import { logger } from "./config/logger";
 import { customerRoutes } from "./routes/customer.routes";
 import { internalCustomerRoutes } from "./routes/internal-customer.routes";
+import { globalLeakyBucketMiddleware } from "./middlewares/leaky-bucket.middleware";
 import { errorMiddleware } from "./middlewares/error.middleware";
 
 const app = express();
+
+// Needed so rate limiting uses the real client IP behind the API gateway.
+app.set("trust proxy", 1);
 
 app.use(helmet());
 app.use(
@@ -51,7 +55,7 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.use("/api/v1/customers", customerRoutes);
+app.use("/api/v1/customers", globalLeakyBucketMiddleware, customerRoutes);
 app.use("/internal/customers", internalCustomerRoutes);
 
 app.use(errorMiddleware);

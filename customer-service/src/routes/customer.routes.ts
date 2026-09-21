@@ -3,6 +3,7 @@ import { customerController } from "../controllers/customer.controller";
 import { kycController } from "../controllers/kyc.controller";
 import { validateBody } from "../middlewares/validation.middleware";
 import { authMiddleware, requireAdmin } from "../middlewares/auth.middleware";
+import { authLeakyBucketMiddleware } from "../middlewares/leaky-bucket.middleware";
 import { RegisterCustomerDTO } from "../dtos/register.dto";
 import { LoginCustomerDTO } from "../dtos/login.dto";
 import { UpdateCustomerDTO } from "../dtos/update-customer.dto";
@@ -13,12 +14,14 @@ const router = Router();
 
 router.post(
   "/register",
+  authLeakyBucketMiddleware,
   validateBody(RegisterCustomerDTO),
   (req, res, next) => customerController.register(req, res, next)
 );
 
 router.post(
   "/login",
+  authLeakyBucketMiddleware,
   validateBody(LoginCustomerDTO),
   (req, res, next) => customerController.login(req, res, next)
 );
