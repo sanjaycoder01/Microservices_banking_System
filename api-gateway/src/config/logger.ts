@@ -53,5 +53,9 @@ export const resolveUpstreamService = (url?: string): string | undefined => {
     return "account-service";
   }
 
+  if (url.startsWith("/api/v1/transactions")) {
+    return "transaction-service";
+  }
+
   return undefined;
 };

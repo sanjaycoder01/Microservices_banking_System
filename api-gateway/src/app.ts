@@ -6,6 +6,7 @@ import { httpLoggerMiddleware } from "./middlewares/http-logger.middleware";
 import { errorMiddleware } from "./middlewares/error.middleware";
 import { customerProxy } from "./routes/customer.proxy";
 import { accountProxy } from "./routes/account.proxy";
+import { transactionProxy } from "./routes/transaction.proxy";
 
 const app = express();
 
@@ -36,6 +37,7 @@ app.get("/health", (_req, res) => {
 // Do not use express.json() before proxies — keep the raw body stream intact.
 app.use(customerProxy);
 app.use(accountProxy);
+app.use(transactionProxy);
 
 app.use(errorMiddleware);
 
