@@ -1,6 +1,9 @@
 import { CreateAccountDTO } from "../dtos/create-account.dto";
 import { InternalTransferDTO } from "../dtos/internal-transfer.dto";
-import { accountRepository } from "../repositories/account.repository";
+import {
+  accountRepository,
+  withMongoTransaction,
+} from "../repositories/account.repository";
 import { customerClient } from "../clients/customer.client";
 import { generateAccountNumber } from "../utils/account-number";
 import {
@@ -151,8 +154,8 @@ export class AccountService {
 
   /**
    * Service-to-service: debit source and credit destination.
-   * Does not use multi-doc transactions (works on standalone MongoDB).
-   * If credit fails after debit, the debit is reversed.
+   * Both updates run in one MongoDB transaction (commit both or rollback both).
+   * Requires MongoDB replica set (or mongos).
    */
   async transferInternal(dto: InternalTransferDTO): Promise<InternalTransferResult> {
     try {
@@ -164,52 +167,71 @@ export class AccountService {
       }
 
       const currency = dto.currency.toUpperCase();
-      const source = await accountRepository.findById(dto.sourceAccountId);
-      const destination = await accountRepository.findById(
-        dto.destinationAccountId
-      );
 
-      if (!source) {
-        throw new AppError(404, "Source account not found");
-      }
-
-      if (!destination) {
-        throw new AppError(404, "Destination account not found");
-      }
-
-      if (source.status !== "ACTIVE") {
-        throw new AppError(400, "Source account is not active");
-      }
-
-      if (destination.status !== "ACTIVE") {
-        throw new AppError(400, "Destination account is not active");
-      }
-
-      if (source.currency !== currency || destination.currency !== currency) {
-        throw new AppError(400, "Currency mismatch between accounts and transfer");
-      }
-
-      const debited = await accountRepository.debitIfSufficient(
-        dto.sourceAccountId,
-        dto.amount
-      );
-
-      if (!debited) {
-        throw new AppError(400, "Insufficient balance in source account");
-      }
-
-      const credited = await accountRepository.creditIfActive(
-        dto.destinationAccountId,
-        dto.amount
-      );
-
-      if (!credited) {
-        await accountRepository.creditUnconditionally(
+      const result = await withMongoTransaction(async (session) => {
+        const source = await accountRepository.findById(
           dto.sourceAccountId,
-          dto.amount
+          session
         );
-        throw new AppError(400, "Failed to credit destination account");
-      }
+        const destination = await accountRepository.findById(
+          dto.destinationAccountId,
+          session
+        );
+
+        if (!source) {
+          throw new AppError(404, "Source account not found");
+        }
+
+        if (!destination) {
+          throw new AppError(404, "Destination account not found");
+        }
+
+        if (source.status !== "ACTIVE") {
+          throw new AppError(400, "Source account is not active");
+        }
+
+        if (destination.status !== "ACTIVE") {
+          throw new AppError(400, "Destination account is not active");
+        }
+
+        if (source.currency !== currency || destination.currency !== currency) {
+          throw new AppError(
+            400,
+            "Currency mismatch between accounts and transfer"
+          );
+        }
+
+        const debited = await accountRepository.debitIfSufficient(
+          dto.sourceAccountId,
+          dto.amount,
+          session
+        );
+
+        if (!debited) {
+          throw new AppError(400, "Insufficient balance in source account");
+        }
+
+        const credited = await accountRepository.creditIfActive(
+          dto.destinationAccountId,
+          dto.amount,
+          session
+        );
+
+        if (!credited) {
+          // Abort transaction — debit is rolled back automatically.
+          throw new AppError(400, "Failed to credit destination account");
+        }
+
+        return {
+          transactionId: dto.transactionId,
+          sourceAccountId: dto.sourceAccountId,
+          destinationAccountId: dto.destinationAccountId,
+          amount: dto.amount,
+          currency,
+          sourceBalance: debited.balance,
+          destinationBalance: credited.balance,
+        };
+      });
 
       logger.info(
         {
@@ -222,19 +244,25 @@ export class AccountService {
         "Internal transfer completed"
       );
 
-      return {
-        transactionId: dto.transactionId,
-        sourceAccountId: dto.sourceAccountId,
-        destinationAccountId: dto.destinationAccountId,
-        amount: dto.amount,
-        currency,
-        sourceBalance: debited.balance,
-        destinationBalance: credited.balance,
-      };
+      return result;
     } catch (error) {
-      if (!(error instanceof AppError)) {
-        logger.error({ err: error }, "Internal transfer failed");
+      if (error instanceof AppError) {
+        throw error;
       }
+
+      const message = error instanceof Error ? error.message : String(error);
+      if (
+        message.includes("Transaction numbers are only allowed on a replica set") ||
+        message.includes("replica set")
+      ) {
+        logger.error({ err: error }, "MongoDB replica set required for transfers");
+        throw new AppError(
+          503,
+          "Account transfers require MongoDB replica set transactions"
+        );
+      }
+
+      logger.error({ err: error }, "Internal transfer failed");
       throw error;
     }
   }

@@ -1,3 +1,4 @@
+import mongoose, { ClientSession } from "mongoose";
 import { AccountModel } from "../models/account.model";
 import { AccountType } from "../types";
 
@@ -15,8 +16,8 @@ export class AccountRepository {
     return AccountModel.findOne({ accountNumber });
   }
 
-  async findById(id: string) {
-    return AccountModel.findById(id);
+  async findById(id: string, session?: ClientSession) {
+    return AccountModel.findById(id).session(session ?? null);
   }
 
   async findByCustomerId(customerId: string) {
@@ -28,7 +29,11 @@ export class AccountRepository {
   }
 
   /** Debit only if account is ACTIVE and has enough balance. */
-  async debitIfSufficient(accountId: string, amount: number) {
+  async debitIfSufficient(
+    accountId: string,
+    amount: number,
+    session?: ClientSession
+  ) {
     return AccountModel.findOneAndUpdate(
       {
         _id: accountId,
@@ -36,30 +41,41 @@ export class AccountRepository {
         balance: { $gte: amount },
       },
       { $inc: { balance: -amount } },
-      { new: true }
+      { new: true, session }
     );
   }
 
   /** Credit only if account is ACTIVE. */
-  async creditIfActive(accountId: string, amount: number) {
+  async creditIfActive(
+    accountId: string,
+    amount: number,
+    session?: ClientSession
+  ) {
     return AccountModel.findOneAndUpdate(
       {
         _id: accountId,
         status: "ACTIVE",
       },
       { $inc: { balance: amount } },
-      { new: true }
-    );
-  }
-
-  /** Used to reverse a debit if credit fails. */
-  async creditUnconditionally(accountId: string, amount: number) {
-    return AccountModel.findOneAndUpdate(
-      { _id: accountId },
-      { $inc: { balance: amount } },
-      { new: true }
+      { new: true, session }
     );
   }
 }
 
 export const accountRepository = new AccountRepository();
+
+/** Runs work inside a MongoDB multi-document transaction (requires replica set). */
+export const withMongoTransaction = async <T>(
+  work: (session: ClientSession) => Promise<T>
+): Promise<T> => {
+  const session = await mongoose.startSession();
+  try {
+    let result!: T;
+    await session.withTransaction(async () => {
+      result = await work(session);
+    });
+    return result;
+  } finally {
+    await session.endSession();
+  }
+};
