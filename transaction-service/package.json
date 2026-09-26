@@ -7,6 +7,7 @@
     "dev": "tsx src/server.ts",
     "start": "tsx src/server.ts",
     "build": "tsc",
+    "kafka:create-topics": "tsx scripts/create-topics.ts",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "license": "ISC",
@@ -20,6 +21,7 @@
     "express": "^5.2.1",
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
+    "kafkajs": "^2.2.4",
     "mongoose": "^9.10.1",
     "pino": "^10.3.1",
     "pino-http": "^11.0.0",

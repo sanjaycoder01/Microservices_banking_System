@@ -16,4 +16,11 @@ export const env = {
   CUSTOMER_SERVICE_URL: required("CUSTOMER_SERVICE_URL"),
   JWT_SECRET: required("JWT_SECRET"),
   LOG_LEVEL: process.env.LOG_LEVEL || "info",
+  KAFKA_BROKER: process.env.KAFKA_BROKER || "localhost:9092",
+  KAFKA_CLIENT_ID: process.env.KAFKA_CLIENT_ID || "transaction-service",
+  KAFKA_TRANSACTION_TOPIC:
+    process.env.KAFKA_TRANSACTION_TOPIC || "transaction.events",
+  KAFKA_TRANSACTION_PARTITIONS: Number(
+    process.env.KAFKA_TRANSACTION_PARTITIONS || 2
+  ),
 };

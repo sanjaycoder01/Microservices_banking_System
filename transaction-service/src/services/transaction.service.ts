@@ -6,6 +6,7 @@ import { customerClient } from "../clients/customer.client";
 import { accountClient } from "../clients/account.client";
 import { generateSessionId, generateTransactionId } from "../utils/ids";
 import { IDEMPOTENCY_HEADER, TRANSFER_SESSION_TTL_MINUTES } from "../constants";
+import { transactionProducer } from "../events/producers/transaction.producer";
 import {
   AppError,
   CreateTransferSessionResponse,
@@ -251,6 +252,15 @@ export class TransactionService {
         },
         "Transfer processed successfully"
       );
+
+      await transactionProducer.publishCompleted({
+        transactionId,
+        customerId: customer.id,
+        sourceAccountId: session.sourceAccountId.toString(),
+        destinationAccountId: session.destinationAccountId.toString(),
+        amount: session.amount,
+        currency: session.currency,
+      });
 
       return toTransactionResponse(completed ?? transaction);
     } catch (error) {
